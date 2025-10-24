@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Editor</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font --><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide icons --><script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles */
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white font-medium py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out;
+            @apply hover:bg-blue-700 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50;
+        }
+        .btn-secondary {
+            @apply bg-gray-600 text-white font-medium py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out;
+            @apply hover:bg-gray-700 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-50;
+        }
+        .btn-primary:disabled, .btn-secondary:disabled {
+            @apply bg-gray-400 cursor-not-allowed shadow-none;
+        }
+        /* Main Loader Spinner */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #FFF;
+            border-bottom-color: #4f46e5;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Card-specific loader (smaller) */
+        .card-loader {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #FFF;
+            border-bottom-color: #4f46e5;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        /* Modal */
+        #error-modal, #viewer-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        /* New Option Card Style */
+        .option-card {
+            @apply bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col;
+        }
+        .option-card-image-wrapper {
+            @apply relative aspect-square w-full bg-gray-700;
+        }
+        .option-card-image {
+            @apply w-full h-full object-cover transition-opacity duration-300;
+        }
+        .option-card-loader-overlay {
+            @apply absolute inset-0 flex items-center justify-center bg-black bg-opacity-50;
+        }
+        .option-card-buttons {
+            @apply p-4 flex gap-4;
+        }
+        .btn-icon {
+            @apply flex-1 flex items-center justify-center gap-2 font-medium py-2 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out;
+            @apply focus:outline-none focus:ring-4 focus:ring-opacity-50;
+        }
+        .btn-icon.regenerate {
+            @apply bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500;
+        }
+        .btn-icon.download {
+            @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+        }
+        .btn-icon:disabled {
+            @apply bg-gray-400 cursor-not-allowed shadow-none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Header --><header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
+                AI Image Editor
+            </h1>
+            <p class="text-lg text-gray-300">Upload an image, describe your vision, and generate new creations.</p>
+        </header>
+
+        <!-- Main Content Grid --><div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- Left Column: Input & Controls --><div class="flex flex-col space-y-6">
+                
+                <!-- Step 1: Upload Image --><div class="glassmorphism p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                        <i data-lucide="upload" class="mr-2"></i>
+                        Step 1: Upload Your Image
+                    </h2>
+                    
+                    <label for="image-upload" class="block w-full h-96 border-2 border-dashed border-gray-400 rounded-lg cursor-pointer hover:border-blue-400 transition-colors duration-300">
+                        <div id="upload-prompt" class="flex flex-col items-center justify-center h-full text-gray-300">
+                            <i data-lucide="cloud-upload" class="mb-2 w-12 h-12"></i>
+                            <p class="font-medium">Click to upload or drag and drop</p>
+                            <p class="text-sm text-gray-400">PNG, JPG, or WEBP</p>
+                        </div>
+                        <img id="image-preview" src="#" alt="Image preview" class="w-full h-full object-contain rounded-lg hidden" style="background-color: #333;" />
+                    </label>
+                    <input type="file" id="image-upload" class="hidden" accept="image/png, image/jpeg, image/webp">
+
+                    <!-- Background Removal Loading Indicator --><div id="bg-remove-loading" class="flex items-center text-gray-400 mt-4 hidden">
+                        <div class="w-5 h-5 border-2 border-gray-500 border-t-white rounded-full animate-spin mr-3"></div>
+                        <span>Removing background...</span>
+                    </div>
+                </div>
+
+                <!-- Step 2: Controls --><div class="glassmorphism p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                        <i data-lucide="settings-2" class="mr-2"></i>
+                        Step 2: Controls
+                    </h2>
+                    <p id="status-text" class="text-gray-400 mb-4">Upload an image to start generating 4 ad options.</p>
+                    <button id="regenerate-all-button" class="btn-primary w-full flex items-center justify-center gap-2" disabled>
+                        <i data-lucide="refresh-cw" class="inline-block w-5 h-5"></i>
+                        Regenerate All 4 Options
+                    </button>
+                </div>
+                
+            </div>
+
+            <!-- Right Column: Output --><div class="glassmorphism p-6 rounded-2xl shadow-lg min-h-[400px]">
+                <h2 class="text-2xl font-semibold mb-4 text-center">Generated Options</h2>
+                
+                <!-- Loading Spinner --><div id="loading-spinner" class="flex flex-col items-center justify-center h-96 hidden">
+                    <div class="loader"></div>
+                    <p id="loading-spinner-text" class="text-gray-300 mt-4 text-lg font-medium">Generating...</p>
+                </div>
+
+                <!-- Initial Prompt --><div id="output-placeholder" class="flex flex-col items-center justify-center h-96 text-gray-400">
+                    <i data-lucide="image" class="mb-4 w-16 h-16 text-gray-500"></i>
+                    <p class="text-lg text-center">Your 4 generated options will appear here.</p>
+                </div>
+                
+                <!-- Image Grid (now for option cards) --><div id="image-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
+                    <!-- Option Cards will be dynamically inserted here --></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Error Modal --><div id="error-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 opacity-0 pointer-events-none z-50">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md text-center border border-red-500">
+            <h3 class="text-2xl font-bold text-red-400 mb-4">Error</h3>
+            <p id="error-message" class="text-gray-200 mb-6">Something went wrong.</p>
+            <button id="close-modal-button" class="btn-secondary px-8">Close</button>
+        </div>
+    </div>
+
+    <!-- Image Viewer Modal --><div id="viewer-modal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 opacity-0 pointer-events-none z-50">
+        <div class="relative bg-gray-900 rounded-lg shadow-xl p-4 md:p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <button id="close-viewer-button" class="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            <img id="viewer-image" src="" alt="Full size generated image" class="max-w-full max-h-[70vh] object-contain mx-auto my-auto rounded-lg" />
+            <div class="flex justify-center mt-4">
+                <a id="viewer-download-button" class="btn-primary flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="inline-block w-5 h-5"></i>
+                    Download
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOVED ALL SCRIPT CONTENT INSIDE THIS TAG -->
+    <script type="module">
+        // --- Lucide Icons ---
+        lucide.createIcons();
+
+        // State variables
+        let uploadedImageBase64 = null; // Original image base64
+        let uploadedMimeType = null;
+        let processedImageBase64 = null; // Background removed image base64
+        let processedImageMimeType = 'image/png'; // Assuming background removal outputs PNG
+        let generatedPrompts = []; // Array to hold the 4 prompts
+        let isLoading = false; // Global loading state lock
+        
+        // DOM Elements
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const bgRemoveLoading = document.getElementById('bg-remove-loading');
+        
+        const statusText = document.getElementById('status-text');
+        const regenerateAllButton = document.getElementById('regenerate-all-button');
+        
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingSpinnerTest = document.getElementById('loading-spinner-text');
+        const outputPlaceholder = document.getElementById('output-placeholder');
+        const imageGrid = document.getElementById('image-grid');
+        
+        // Modal Elements
+        const errorModal = document.getElementById('error-modal');
+        const errorMessage = document.getElementById('error-message');
+        const closeModalButton = document.getElementById('close-modal-button');
+
+        const viewerModal = document.getElementById('viewer-modal');
+        const viewerImage = document.getElementById('viewer-image');
+        const closeViewerButton = document.getElementById('close-viewer-button');
+        const viewerDownloadButton = document.getElementById('viewer-download-button');
+
+        // --- Event Listeners ---
+        
+        imageUpload.addEventListener('change', handleImageUpload);
+        regenerateAllButton.addEventListener('click', () => generateAllOptions(true));
+        closeModalButton.addEventListener('click', hideErrorModal);
+        closeViewerButton.addEventListener('click', hideViewerModal);
+        viewerModal.addEventListener('click', (e) => {
+            if (e.target === viewerModal) {
+                hideViewerModal();
+            }
+        });
+
+        // --- Main Functions ---
+
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+                showErrorModal('Invalid file type. Please upload a PNG, JPG, or WEBP image.');
+                resetState();
+                return;
+            }
+
+            uploadedMimeType = file.type;
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                const fullBase64 = e.target.result;
+                uploadedImageBase64 = fullBase64.split(',')[1];
+                
+                imagePreview.src = fullBase64; // Show original while processing
+                imagePreview.classList.remove('hidden');
+                uploadPrompt.classList.add('hidden');
+                
+                // Start the full generation pipeline
+                setBgRemoveLoading(true);
+                try {
+                    const noBgBase64 = await removeImageBackground(uploadedImageBase64, uploadedMimeType);
+                    processedImageBase64 = noBgBase64;
+                    imagePreview.src = `data:${processedImageMimeType};base64,${processedImageBase64}`; // Show processed image
+                    
+                    // Automatically generate all 4 options
+                    await generateAllOptions(false); 
+
+                } catch (error) {
+                    console.error('Error during processing:', error);
+                    showErrorModal(`Failed to process image or generate options. ${error.message}`);
+                    resetState(); // Reset if essential steps fail
+                } finally {
+                    setBgRemoveLoading(false);
+                }
+            };
+            
+            reader.onerror = () => {
+                showErrorModal('Failed to read the image file.');
+                resetState();
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * The main function to generate 4 prompts AND 4 images.
+         */
+        async function generateAllOptions(forceRegenerate = false) {
+            if (isLoading) return; // Prevent simultaneous runs
+            if (!processedImageBase64) {
+                showErrorModal("Please upload an image first.");
+                return;
+            }
+
+            setGlobalLoading(true, "Generating 4 ad-style prompts...");
+            clearGeneratedImages();
+            
+            try {
+                // 1. Generate 4 prompts in parallel
+                const promptPromises = [];
+                for (let i = 0; i < 4; i++) {
+                    promptPromises.push(callImageDescriptionApi(processedImageBase64, processedImageMimeType, i));
+                }
+                const prompts = await Promise.all(promptPromises);
+                generatedPrompts = prompts; // Save prompts to state
+
+                // 2. Generate 4 images in parallel using the new prompts
+                setGlobalLoading(true, "Generating 4 images (one for each prompt)...");
+                const imagePromises = prompts.map(prompt => {
+                    return callImageApi(prompt, processedImageBase64, processedImageMimeType);
+                });
+                const images = await Promise.all(imagePromises);
+
+                // 3. Populate the grid with the new "Option Cards"
+                imageGrid.innerHTML = ''; // Clear grid
+                images.forEach((imgBase64, index) => {
+                    if (imgBase64 && prompts[index]) {
+                        const cardElement = createOptionCard(prompts[index], imgBase64, index);
+                        imageGrid.appendChild(cardElement);
+                    }
+                });
+                lucide.createIcons(); // Re-render icons on new elements
+
+            } catch (error) {
+                console.error('Error generating all options:', error);
+                showErrorModal(`Failed to generate options. ${error.message}`);
+            } finally {
+                setGlobalLoading(false);
+            }
+        }
+
+        /**
+         * Creates the HTML element for a single "Option Card"
+         */
+        function createOptionCard(promptText, imageBase64, index) {
+            const card = document.createElement('div');
+            card.className = 'option-card';
+            card.id = `option-card-${index}`;
+            const imageUrl = `data:image/png;base64,${imageBase64}`;
+
+            card.innerHTML = `
+                <div class="option-card-image-wrapper group">
+                    <img src="${imageUrl}" alt="Generated image ${index + 1}" class="option-card-image" ondblclick="window.showViewerModal('${imageUrl}')" title="Double-click to view full size">
+                    
+                    <!-- Loader Overlay -->
+                    <div class="option-card-loader-overlay hidden">
+                        <div class="card-loader"></div>
+                    </div>
+
+                </div>
+                <!-- Buttons Bar BELOW the image -->
+                <div class="p-3 flex gap-3 bg-gray-800 border-t border-gray-700">
+                    <button class="btn-icon regenerate" title="Regenerate">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        <span>Regenerate</span>
+                    </button>
+                    <a href="${imageUrl}" download="generated-option-${Date.now()}.png" class="btn-icon download" title="Download">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        <span>Download</span>
+                    </a>
+                </div>
+            `;
+
+            // Add event listener for the new regenerate button
+            const regenerateBtn = card.querySelector('.regenerate');
+            regenerateBtn.addEventListener('click', () => {
+                regenerateSingleImage(index, promptText, regenerateBtn);
+            });
+
+            return card;
+        }
+        
+        // Make showViewerModal globally accessible for ondblclick
+        window.showViewerModal = showViewerModal;
+
+        /**
+         * Regenerates a SINGLE image for a specific card.
+         */
+        async function regenerateSingleImage(index, promptText, regenButtonEl) {
+            if (isLoading) {
+                showErrorModal("Please wait for the current operation to finish before regenerating.");
+                return;
+            }
+            if (!processedImageBase64) {
+                 showErrorModal("Image data lost. Please re-upload.");
+                return;
+            }
+            
+            isLoading = true; // Set global lock
+            regenButtonEl.disabled = true;
+            regenerateAllButton.disabled = true; // Disable global regen too
+            regenButtonEl.innerHTML = '<div class="card-loader mx-auto"></div>'; // Show small loader, centered
+
+            const card = document.getElementById(`option-card-${index}`);
+            const imgEl = card.querySelector('.option-card-image');
+            const downloadLink = card.querySelector('.download');
+            
+            imgEl.classList.add('opacity-30'); // Fade image
+
+            try {
+                const newImgBase64 = await callImageApi(promptText, processedImageBase64, processedImageMimeType);
+                const newImageUrl = `data:image/png;base64,${newImgBase64}`;
+                
+                imgEl.src = newImageUrl;
+                imgEl.ondblclick = () => window.showViewerModal(newImageUrl); // Update dblclick
+                downloadLink.href = newImageUrl;
+
+            } catch (error) {
+                console.error(`Error regenerating image ${index}:`, error);
+                showErrorModal(`Failed to regenerate option ${index + 1}. ${error.message}`);
+            } finally {
+                isLoading = false; // Release global lock
+                regenButtonEl.disabled = false;
+                regenerateAllButton.disabled = false;
+                regenButtonEl.innerHTML = '<i data-lucide="refresh-cw" class="w-5 h-5"></i><span>Regenerate</span>';
+                imgEl.classList.remove('opacity-30');
+                lucide.createIcons(); // Re-render icon in button
+            }
+        }
+
+
+        // --- Loading and State Management ---
+
+        function setGlobalLoading(state, message = "") {
+            isLoading = state;
+            regenerateAllButton.disabled = state;
+            
+            if (state) {
+                loadingSpinnerTest.textContent = message;
+                loadingSpinner.classList.remove('hidden');
+                outputPlaceholder.classList.add('hidden');
+                imageGrid.classList.add('hidden');
+                statusText.textContent = message;
+            } else {
+                loadingSpinner.classList.add('hidden');
+                if (generatedPrompts.length > 0) {
+                    imageGrid.classList.remove('hidden');
+                    outputPlaceholder.classList.add('hidden');
+                    statusText.textContent = "Generation complete. You can regenerate all options if you like.";
+                } else {
+                    outputPlaceholder.classList.remove('hidden');
+                    statusText.textContent = "Upload an image to start generating 4 ad options.";
+                }
+            }
+        }
+
+        function setBgRemoveLoading(state) {
+            if (state) {
+                bgRemoveLoading.classList.remove('hidden');
+                regenerateAllButton.disabled = true;
+            } else {
+                bgRemoveLoading.classList.add('hidden');
+                // Don't re-enable button here, wait for global loading
+            }
+        }
+        
+        function resetState() {
+            // Reset Step 1
+            imagePreview.src = '#';
+            imagePreview.classList.add('hidden');
+            uploadPrompt.classList.remove('hidden');
+            imageUpload.value = '';
+            uploadedImageBase64 = null;
+            uploadedMimeType = null;
+            processedImageBase64 = null;
+            setBgRemoveLoading(false);
+            
+            // Reset State
+            generatedPrompts = [];
+            setGlobalLoading(false); // This will reset spinners and text
+            
+            // Reset Output
+            clearGeneratedImages();
+        }
+
+        function clearGeneratedImages() {
+            imageGrid.innerHTML = '';
+            imageGrid.classList.add('hidden');
+            outputPlaceholder.classList.remove('hidden');
+        }
+
+        // --- API Calls ---
+
+        async function removeImageBackground(imageBase64, mimeType, maxRetries = 3) {
+            console.warn("Background removal is a placeholder. A real API integration is needed here.");
+            await new Promise(resolve => setTimeout(resolve, 1500)); 
+            return imageBase64; // Return original image for now
+        }
+
+        async function callImageDescriptionApi(imageBase64, mimeType, promptVariationIndex, maxRetries = 3) {
+            const apiKey = ""; // API key will be injected
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompts = [
+                `You are a creative advertising copywriter for a whimsical, fantastical brand. Analyze the uploaded image and generate a single, highly imaginative, descriptive visual prompt for an image generation model. Transform the main subject into a giant, dreamlike object in a miniature, magical world. Focus on enchanting details, playful interactions, and a sense of wonder. Example: "A colossal, glistening potato chip bag, overturned in a lush field of miniature potato plants. Tiny farmers harvest the abundant chips, while others enjoy a picnic on a giant chip. In the sky, colorful paragliders drift, small as specks."`,
+                `You are an edgy, dynamic advertising creative. Analyze the uploaded image and generate a single, impactful, and action-oriented visual prompt for an image generation model. Transform the main subject into an enormous, powerful icon dominating a surreal, high-energy landscape. Emphasize motion, bold contrasts, and a futuristic or epic feel. Example: "An enormous, iconic Coca-Cola can crowns a rolling green hill, serving as the centerpiece for a bustling music festival. Thousands of tiny revelers dance and camp below, surrounded by vibrant tents. Above, flocks of colorful birds and adventurous paragliders dot the vast, sun-drenched sky."`,
+                `You are a sophisticated, elegant advertising art director. Analyze the uploaded image and generate a single, refined, and aesthetically rich visual prompt for an image generation model. Depict the main subject as a luxurious, artfully placed giant object within a serene, beautifully composed miniature scene. Focus on textures, subtle lighting, and a sense of sophisticated grandeur. Example: "A towering, ornate bottle of spicy Thai sauce stands proudly amidst an archipelago of floating emerald islands, each adorned with traditional Thai wooden houses and golden rice terraces connected by delicate rope bridges. Giant chilies, garlic cloves, and cilantro leaves drift in the mystical, twilight air."`,
+                `You are a quirky, avant-garde designer. Analyze the uploaded image and generate a single, bizarre, and thought-provoking visual prompt for an image generation model. Reimagine the main subject as a strange, out-of-place giant element interacting with an unconventional or absurd miniature environment. Embrace surrealism, unexpected juxtapositions, and a slightly humorous or unsettling tone. Example: "A vibrant bag of 'NaxNax' banana chips floats magically above a jagged island carved entirely from spicy, crispy banana slices. A fiery red spice dust swirls like a nebula around the island, illuminating a dramatic sunset sky filled with ethereal clouds."`
+            ];
+            const currentSystemPrompt = systemPrompts[promptVariationIndex % systemPrompts.length];
+
+            const payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            { "text": "Analyze the following image and generate a creative prompt based on the system instructions." },
+                            { "inlineData": { "mimeType": mimeType, "data": imageBase64 } }
+                        ]
+                    }
+                ],
+                "systemInstruction": { "parts": [ { "text": currentSystemPrompt } ] }
+            };
+
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error?.message || 'Unknown error'}`);
+                    }
+                    const result = await response.json();
+                    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        console.error("Invalid response structure for description:", result);
+                        throw new Error('No text description found in API response.');
+                    }
+                    return text.trim().replace(/^"|"$/g, '');
+                } catch (error) {
+                    console.warn(`Attempt ${attempt + 1} for prompt generation failed: ${error.message}`);
+                    attempt++;
+                    if (attempt >= maxRetries) { throw error; }
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function callImageApi(prompt, imageBase64, mimeType, maxRetries = 3) {
+            const apiKey = ""; // API key will be injected
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            { "text": prompt },
+                            { "inlineData": { "mimeType": mimeType, "data": imageBase64 } }
+                        ]
+                    }
+                ],
+                "generationConfig": { "responseModalities": ["TEXT", "IMAGE"] }
+            };
+
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error?.message || 'Unknown error'}`);
+                    }
+                    const result = await response.json();
+                    const part = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+                    const base64Data = part?.data;
+                    if (!base64Data) {
+                        console.error("Invalid response structure:", result);
+                        throw new Error('No image data found in API response.');
+                    }
+                    return base64Data;
+                } catch (error) {
+                    console.warn(`Attempt ${attempt + 1} for image generation failed: ${error.message}`);
+                    attempt++;
+                    if (attempt >= maxRetries) { throw error; }
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        // --- Modal Functions ---
+        
+        function showErrorModal(message) {
+            errorMessage.textContent = message;
+            errorModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+        
+        function hideErrorModal() {
+            errorModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function showViewerModal(imageUrl) {
+            viewerImage.src = imageUrl;
+            viewerDownloadButton.href = imageUrl;
+            viewerDownloadButton.download = `full-image-${Date.now()}.png`;
+            viewerModal.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideViewerModal() {
+            viewerModal.classList.add('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = '';
+        }
+
+    </script>
+</body>
+</html>
+
+
