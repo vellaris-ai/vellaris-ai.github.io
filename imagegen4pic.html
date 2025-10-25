@@ -185,8 +185,7 @@
         </div>
     </div>
 
-    <!-- MOVED ALL SCRIPT CONTENT INSIDE THIS TAG -->
-    <script type="module">
+    <!-- MOVED ALL SCRIPT CONTENT INSIDE THIS TAG --><script type="module">
         // --- Lucide Icons ---
         lucide.createIcons();
 
@@ -260,8 +259,10 @@
                 // Start the full generation pipeline
                 setBgRemoveLoading(true);
                 try {
-                    const noBgBase64 = await removeImageBackground(uploadedImageBase64, uploadedMimeType);
-                    processedImageBase64 = noBgBase64;
+                    // MOCK: Replace this with a real background removal API call
+                    const noBgBase64 = await removeImageBackground(fullBase64); // Pass full Base64 with prefix
+                    processedImageBase64 = noBgBase64; // This is now a base64 string without prefix
+                    processedImageMimeType = 'image/png'; // Assuming output is PNG
                     imagePreview.src = `data:${processedImageMimeType};base64,${processedImageBase64}`; // Show processed image
                     
                     // Automatically generate all 4 options
@@ -344,14 +345,12 @@
                 <div class="option-card-image-wrapper group">
                     <img src="${imageUrl}" alt="Generated image ${index + 1}" class="option-card-image" ondblclick="window.showViewerModal('${imageUrl}')" title="Double-click to view full size">
                     
-                    <!-- Loader Overlay -->
-                    <div class="option-card-loader-overlay hidden">
+                    <!-- Loader Overlay --><div class="option-card-loader-overlay hidden">
                         <div class="card-loader"></div>
                     </div>
 
                 </div>
-                <!-- Buttons Bar BELOW the image -->
-                <div class="p-3 flex gap-3 bg-gray-800 border-t border-gray-700">
+                <!-- Buttons Bar BELOW the image --><div class="p-3 flex gap-3 bg-gray-800 border-t border-gray-700">
                     <button class="btn-icon regenerate" title="Regenerate">
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                         <span>Regenerate</span>
@@ -483,11 +482,59 @@
 
         // --- API Calls ---
 
-        async function removeImageBackground(imageBase64, mimeType, maxRetries = 3) {
-            console.warn("Background removal is a placeholder. A real API integration is needed here.");
-            await new Promise(resolve => setTimeout(resolve, 1500)); 
-            return imageBase64; // Return original image for now
+        /**
+         * Mocks background removal using OffscreenCanvas to draw and convert to transparent PNG.
+         * Replace this with a real API call to a background removal service.
+         * @param {string} fullBase64Image - The base64 string including the data URI prefix (e.g., "data:image/jpeg;base64,...")
+         * @returns {Promise<string>} - A promise that resolves to a base64 string of the transparent PNG (without prefix).
+         */
+        async function removeImageBackground(fullBase64Image) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    // --- NEW RESIZING LOGIC ---
+                    const MAX_WIDTH = 1024;
+                    const MAX_HEIGHT = 1024;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height = height * (MAX_WIDTH / width);
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width = width * (MAX_HEIGHT / height);
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    // --- END RESIZING LOGIC ---
+
+                    const canvas = document.createElement('canvas'); // Use regular canvas for broader support
+                    canvas.width = width; // Use new width
+                    canvas.height = height; // Use new height
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        return reject(new Error("Could not get 2D context for canvas."));
+                    }
+
+                    // A very simple mock: draw the image and then convert it to PNG.
+                    // This doesn't actually remove background but makes it transparent
+                    // if the original image already had transparency.
+                    // For a real solution, you'd use a service like Remove.bg or similar.
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Ensures transparency
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // Draw resized image
+
+                    // Convert canvas content to base64 PNG, extract data part
+                    const dataUrl = canvas.toDataURL('image/png');
+                    resolve(dataUrl.split(',')[1]);
+                };
+                img.onerror = (e) => reject(new Error("Failed to load image for background removal mock."));
+                img.src = fullBase64Image;
+            });
         }
+
 
         async function callImageDescriptionApi(imageBase64, mimeType, promptVariationIndex, maxRetries = 3) {
             const apiKey = ""; // API key will be injected
@@ -615,6 +662,5 @@
     </script>
 </body>
 </html>
-
 
 
