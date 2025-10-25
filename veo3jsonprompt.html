@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veo3 Prompt Structure Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        
+        /* Global Styles for Rich Dark Theme */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #121523; /* Deeper, richer blue-black */
+            color: #EAEAEA; 
+        }
+
+        /* Card/Container Styles - More pronounced depth and glow */
+        .card { 
+            background: #1D2338; /* Contrasting card background */
+            border-radius: 16px; 
+            /* Enhanced Shadow and Inner Border for a premium look */
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 5px rgba(0, 207, 255, 0.1); 
+            border: 1px solid #323A52; 
+            transition: all 0.3s ease;
+        }
+
+        /* Step Navigation */
+        .step-header { 
+            background-color: #323A52; 
+            border-radius: 12px; 
+            color: #C0C0C0;
+            transition: all 0.2s;
+        }
+        .active-step { 
+            background-color: #00CFFF; /* Vibrant Cyan Accent */
+            color: #121523; /* High contrast text */
+            font-weight: 700; 
+            box-shadow: 0 0 18px rgba(0, 207, 255, 0.8); /* Brighter glow */
+        }
+
+        /* Inputs & Textareas - Higher contrast and clearer focus */
+        .input-style {
+            background-color: #2D334C; /* Darker input background */
+            border: 1px solid #323A52;
+            color: #EAEAEA;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-style:focus {
+            border-color: #00CFFF;
+            box-shadow: 0 0 0 3px rgba(0, 207, 255, 0.5); /* Stronger focus ring */
+            background-color: #242A42; /* Slight change on focus */
+        }
+
+        /* Placeholder & Loading */
+        .image-placeholder { 
+            min-height: 350px; 
+            background-color: #2D334C; 
+            border: 2px dashed #00CFFF; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: 8px; 
+        }
+        .loading-ring { 
+            border: 4px solid rgba(255, 255, 255, 0.3); 
+            border-top: 4px solid #00CFFF; 
+            border-radius: 50%; 
+            width: 28px; /* Slightly larger */
+            height: 28px; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Vertical aspect ratio container (9:16) */
+        .aspect-9-16 { position: relative; width: 100%; padding-top: 177.77%; }
+        .aspect-9-16 > img, .aspect-9-16 > div { position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+        
+        /* Custom Button Gradients - Improved depth and contrast */
+        .btn-primary { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #121523; font-weight: 700; }
+        .btn-primary:hover { opacity: 0.95; box-shadow: 0 6px 20px rgba(255, 165, 0, 0.7); transform: translateY(-1px); }
+
+        .btn-accent { background: linear-gradient(135deg, #00CFFF 0%, #007AA3 100%); color: #121523; font-weight: 700; }
+        .btn-accent:hover { opacity: 0.95; box-shadow: 0 6px 20px rgba(0, 207, 255, 0.7); transform: translateY(-1px); }
+
+        .btn-script { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; font-weight: 700; }
+        .btn-script:hover { opacity: 0.95; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5); transform: translateY(-1px); }
+
+        .btn-neutral { background: #323A52; color: #EAEAEA; }
+        .btn-neutral:hover { background: #4B526B; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); }
+
+        .btn-draft { background: linear-gradient(135deg, #FACC15 0%, #D97706 100%); color: #121523; font-weight: 700; }
+        .btn-draft:hover { opacity: 0.95; box-shadow: 0 6px 20px rgba(250, 204, 21, 0.7); transform: translateY(-1px); }
+
+        /* JSON Output */
+        #json-code {
+            background-color: #0D101A;
+            border: 1px solid #00CFFF;
+            box-shadow: 0 0 15px rgba(0, 207, 255, 0.4);
+            font-family: monospace;
+        }
+
+        /* Error/Info Boxes */
+        #image-status, #image-error { padding: 1rem; border-radius: 0.5rem; font-weight: 600; }
+        #image-status { background-color: rgba(16, 185, 129, 0.1); border-color: #10B981; color: #10B981; }
+        #image-error { background-color: rgba(239, 68, 68, 0.1); border-color: #EF4444; color: #EF4444; }
+        #image-info { background-color: #2D334C; border-left: 4px solid #00CFFF; padding-left: 1rem; }
+
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div id="app" class="max-w-5xl mx-auto">
+        <h1 class="text-4xl font-extrabold mb-10 text-white tracking-wider text-center">Vellaris VEO3 Video Prompt Generator</h1>
+
+        <!-- Step Navigation -->
+        <div class="flex space-x-4 mb-12 p-2 card">
+            <button id="step1-btn" class="flex-1 step-header py-4 px-4 text-base transition duration-150 ease-in-out">
+                <span class="mr-2 font-bold">1.</span> Reference Image
+            </button>
+            <button id="step2-btn" class="flex-1 step-header py-4 px-4 text-base transition duration-150 ease-in-out" disabled>
+                <span class="mr-2 font-bold">2.</span> Scene Scripting
+            </button>
+            <button id="step3-btn" class="flex-1 step-header py-4 px-4 text-base transition duration-150 ease-in-out" disabled>
+                <span class="mr-2 font-bold">3.</span> Final JSON
+            </button>
+        </div>
+
+        <!-- Step 1: Image Generation -->
+        <div id="step1-content" class="card p-8 space-y-8">
+            <h2 class="text-3xl font-semibold text-white border-b border-gray-700 pb-4">Style Definition</h2>
+
+            <!-- FINAL WORKING PROMPT (EDITABLE) -->
+            <div>
+                <label for="image-prompt" class="block text-lg font-medium text-gray-300 mb-2">Final Working Style Prompt</label>
+                <textarea id="image-prompt" rows="3" class="w-full p-4 input-style rounded-lg text-base" placeholder="A futuristic cyberpunk street with neon signs, a woman in a trench coat, high contrast, cinematic lighting, 9:16 vertical aspect ratio."></textarea>
+                <p class="text-sm text-gray-400 mt-2">This detailed prompt locks in the visual style (color, mood, camera) for your entire video.</p>
+            </div>
+
+            <button id="generate-image-btn" class="w-full btn-primary font-bold py-4 px-4 rounded-xl transition duration-300 ease-in-out flex items-center justify-center text-xl">
+                Generate Reference Image
+            </button>
+            
+            <div class="flex items-center my-8">
+                <div class="flex-grow border-t border-gray-600"></div>
+                <span class="flex-shrink mx-4 text-gray-400 text-base font-medium">OR QUICK START WITH UPLOAD</span>
+                <div class="flex-grow border-t border-gray-600"></div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="card p-6 border-none bg-[#121523] rounded-xl">
+                <label for="image-upload" class="block text-lg font-medium text-gray-300 mb-4">Upload Your Own Reference Photo</label>
+                <input type="file" id="image-upload" accept="image/png, image/jpeg" class="w-full text-base text-gray-400 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-base file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600 transition duration-150">
+                <p id="upload-status" class="text-sm text-green-400 mt-3 hidden">Image uploaded and ready for prompt generation.</p>
+            </div>
+            
+            <!-- THIRD BOX: AI Generated Prompt Review (Now Editable) -->
+            <div id="ai-prompt-section" class="hidden space-y-4 p-6 bg-[#2D334C] border border-[#00CFFF] rounded-xl">
+                <p class="font-semibold text-lg text-white">AI Generated Style Prompt (Review and Edit Here):</p>
+                <textarea id="ai-editable-prompt" rows="3" class="w-full p-4 input-style rounded-lg text-base"></textarea>
+                <button id="use-ai-prompt-btn" class="w-full btn-accent font-bold py-3 px-4 rounded-xl transition duration-150 ease-in-out flex items-center justify-center text-lg">
+                    Confirm & Use This Prompt (Go to Step 2)
+                </button>
+            </div>
+
+
+            <div id="image-output" class="flex flex-col md:flex-row gap-8 pt-4">
+                <div class="md:w-1/3">
+                    <p class="text-lg font-medium text-gray-300 mb-3">9:16 Visual Reference</p>
+                    <div class="aspect-9-16 card overflow-hidden">
+                        <div id="image-display" class="image-placeholder text-gray-400 text-center p-4">
+                            Upload or Generate Image here
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-2/3 space-y-4">
+                    <div id="image-status" class="text-base p-4 rounded-lg hidden">
+                        ✅ Prompt confirmed. Move to **Step 2** to draft your scenes.
+                    </div>
+                    <div id="image-error" class="text-base p-4 rounded-lg hidden">
+                        ❌ Error processing image. Check console for details.
+                    </div>
+                    <div id="image-info" class="text-base p-4 rounded-lg">
+                        <p class="font-semibold mb-1">Tip:</p>
+                        <p>A good style prompt includes lighting (e.g., 'backlit'), mood (e.g., 'melancholy'), and artistic style (e.g., 'cinematic, photo-realistic').</p>
+                    </div>
+                    <p id="image-prompt-display" class="text-sm text-gray-400 p-4 bg-[#2D334C] rounded-lg italic break-words hidden">Current Prompt: </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Scene Generation -->
+        <div id="step2-content" class="card p-8 space-y-10 hidden">
+            <h2 class="text-3xl font-semibold text-white border-b border-gray-700 pb-4">Scene Scripting & Dialogue</h2>
+
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="md:w-1/3">
+                    <p class="text-lg font-medium text-gray-300 mb-3">Current Style Reference:</p>
+                    <div class="aspect-9-16 card overflow-hidden">
+                        <img id="ref-image-for-step2" src="" alt="Reference Image" class="w-full h-full object-cover rounded-lg">
+                    </div>
+                </div>
+                <div class="md:w-2/3 space-y-6">
+                    <div>
+                        <label for="video-concept" class="block text-lg font-medium text-gray-300 mb-2">Overall Video Concept / Narrative</label>
+                        <textarea id="video-concept" rows="2" class="w-full p-4 input-style rounded-lg text-base" placeholder="A mysterious person running away from a chase in the city."></textarea>
+                    </div>
+
+                    <!-- Scene Count -->
+                    <div class="flex space-x-4 items-center">
+                        <label for="scene-count" class="block text-lg font-medium text-gray-300">Number of Scenes (Min 4)</label>
+                        <input id="scene-count" type="number" min="4" value="4" class="w-24 p-3 input-style rounded-lg focus:ring-opacity-50 text-center text-lg">
+                    </div>
+
+                    <!-- Speech/Dialogue -->
+                    <div class="border border-[#323A52] p-5 rounded-xl bg-[#242A42] space-y-4">
+                        <label for="video-dialogue" class="block text-lg font-medium text-gray-300 mb-2">Speech/Dialogue Script</label>
+                        <textarea id="video-dialogue" rows="3" class="w-full p-4 input-style rounded-lg text-base" placeholder="The full script, line by line. (e.g., Character: 'I'm close.')"></textarea>
+                        <p class="text-sm text-gray-400">Include speaker names for accurate line distribution.</p>
+                        <button id="draft-dialogue-btn" class="text-sm btn-draft font-semibold py-2 px-4 rounded-xl transition duration-150 ease-in-out flex items-center justify-center">
+                            ✨ Draft Dialogue (AI Assist)
+                        </button>
+                    </div>
+
+                    <button id="generate-script-btn" class="w-full btn-script font-bold py-4 px-4 rounded-xl transition duration-300 ease-in-out flex items-center justify-center text-xl">
+                        Suggest Dynamic Scenes & Dialogue Distribution
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scene Editor -->
+            <div id="scene-editor" class="space-y-8 pt-6">
+                <!-- Scenes will be dynamically injected here -->
+            </div>
+
+            <button id="confirm-script-btn" class="w-full btn-accent font-bold py-4 px-4 rounded-xl transition duration-300 ease-in-out hidden text-xl">
+                Confirm Scenes & Generate Final JSON (Step 3)
+            </button>
+        </div>
+
+        <!-- Step 3: Final JSON Output -->
+        <div id="step3-content" class="card p-8 space-y-8 hidden">
+            <h2 class="text-3xl font-semibold text-white border-b border-gray-700 pb-4">Final Veo3 Prompt Payload</h2>
+
+            <div id="json-review" class="text-base p-6 border border-[#323A52] rounded-xl bg-[#2D334C] space-y-2">
+                <p class="font-medium text-white mb-2 text-lg">Script Summary:</p>
+                <p id="review-image-prompt" class="truncate text-gray-400">Image Prompt: <span class="italic text-white">...</span></p>
+                <p id="review-concept" class="text-gray-400">Video Concept: <span class="italic text-white">...</span></p>
+                <p id="review-scene-count" class="text-gray-400">Total Scenes: <span class="text-white">...</span></p>
+            </div>
+
+            <div id="final-json-output" class="relative mt-4">
+                <p class="text-lg font-medium text-gray-300 mb-2">JSON Structure (Ready to Copy):</p>
+                <pre id="json-code" class="p-6 rounded-xl overflow-x-auto text-base whitespace-pre-wrap"></pre>
+            </div>
+            
+            <button id="copy-json-btn" class="w-full btn-neutral font-bold py-4 px-4 rounded-xl transition duration-300 ease-in-out flex items-center justify-center text-xl">
+                Copy Final JSON to Clipboard
+            </button>
+            <p id="copy-status" class="text-green-500 text-sm mt-2 hidden text-center">JSON copied successfully!</p>
+
+            <div class="flex items-center my-6">
+                <div class="flex-grow border-t border-gray-600"></div>
+                <span class="flex-shrink mx-4 text-gray-400 text-base font-medium">NEXT STEP</span>
+                <div class="flex-grow border-t border-gray-600"></div>
+            </div>
+
+            <a id="veo3-link-btn" href="https://labs.google/fx/tools/flow" target="_blank" class="w-full btn-accent font-bold py-4 px-4 rounded-xl transition duration-300 ease-in-out flex items-center justify-center text-xl">
+                Create Veo3 Link (Open Flow Tool)
+            </a>
+        </div>
+
+        <!-- Global Toast/Modal for Errors -->
+        <div id="error-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50">
+            <div class="bg-[#242A42] p-8 rounded-lg shadow-2xl max-w-sm w-full border border-red-500">
+                <h3 class="text-xl font-bold text-red-400 mb-4">SYSTEM ALERT</h3>
+                <p id="error-message" class="text-gray-300 text-base"></p>
+                <button onclick="document.getElementById('error-modal').classList.add('hidden')" class="mt-6 w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition duration-200">Close</button>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Footer Added -->
+    <footer class="mt-12 py-4 text-center text-gray-500 text-sm border-t border-gray-800">
+        Powered by <span class="font-semibold text-[#00CFFF]">Vellaris.ai</span>
+    </footer>
+    <!-- End Footer -->
+
+    <script type="module">
+        // Global variables for environment (Mandatory for Canvas environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const apiKey = ""; // API Key is provided by the environment
+
+        let state = {
+            currentStep: 1,
+            imagePrompt: '',
+            imageUrl: '',
+            videoConcept: '',
+            scenes: []
+        };
+
+        // --- Core API Functions (with Exponential Backoff) ---
+
+        /**
+         * Generic function to handle API calls with exponential backoff.
+         */
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API failed with status ${response.status}: ${JSON.stringify(errorBody)}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        /**
+         * Calls the Imagen API to generate a base image.
+         */
+        async function generateImageApi(prompt) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            const payload = {
+                instances: {
+                    prompt: prompt,
+                    // Use a vertical aspect ratio for 9:16
+                    aspectRatio: "9:16"
+                },
+                parameters: {
+                    sampleCount: 1,
+                    outputMimeType: 'image/png'
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            const response = await fetchWithRetry(apiUrl, options);
+            const result = await response.json();
+
+            if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            } else {
+                throw new Error("Image generation failed: No image data returned.");
+            }
+        }
+
+        /**
+         * Calls the Gemini API to suggest a structured script.
+         */
+        async function generateScriptApi(imagePrompt, concept, sceneCount, dialogue) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are a professional film director's assistant. Based on the user's reference image style/prompt, overall video concept, and provided dialogue, create a ${sceneCount}-scene script structure. Ensure the action descriptions are vivid, short, and maintain the style implied by the image. For each scene, include a specific, dynamic camera movement (e.g., 'dolly forward', 'fast pan right', 'smooth crane shot'). Distribute the dialogue across the scenes logically. The output MUST be valid JSON conforming to the provided schema.`;
+
+            const userQuery = `Reference Image Style/Prompt: "${imagePrompt}"\nOverall Video Concept: "${concept}"\nRequired Scene Count: ${sceneCount}\nFull Dialogue Script: "${dialogue}"\n\nGenerate exactly ${sceneCount} scenes for a 9:16 vertical video.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "scene_number": { "type": "NUMBER" },
+                                "action_description": { "type": "STRING", "description": "A detailed, cinematic description of the action, movement, and mood for this scene, up to 15 words." },
+                                "suggested_duration_sec": { "type": "NUMBER", "description": "The suggested duration for the scene in seconds (3-5 seconds)." },
+                                "dialogue": { "type": "STRING", "description": "The specific line of dialogue spoken by a character in this scene, or empty if none." },
+                                "camera_movement": { "type": "STRING", "description": "A dynamic camera movement description (e.g., 'dolly zoom', 'slow pull back', 'fast track left')." }
+                            },
+                            "required": ["scene_number", "action_description", "suggested_duration_sec", "dialogue", "camera_movement"]
+                        }
+                    }
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            const response = await fetchWithRetry(apiUrl, options);
+            const result = await response.json();
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (jsonText) {
+                try {
+                    return JSON.parse(jsonText);
+                } catch (e) {
+                    throw new Error("Failed to parse JSON response from script generation.");
+                }
+            } else {
+                throw new Error("Script generation failed: No content returned.");
+            }
+        }
+        
+        /**
+         * Calls the Gemini API (Vision) to generate a descriptive prompt from an image.
+         */
+        async function generatePromptFromImageApi(base64Data, mimeType) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are a creative writer for a cinematic AI video generation tool. Analyze the image provided. Create a detailed, single-paragraph descriptive prompt (max 70 words) that captures the style, lighting, composition, mood, and subject of the image. The prompt must be optimized for generating a high-quality, vertical (9:16) video in the same visual style.`;
+
+            const payload = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: "Describe this image cinematically for an AI video model. Focus on style, lighting, and mood." },
+                            {
+                                inlineData: {
+                                    mimeType: mimeType,
+                                    data: base64Data
+                                }
+                            }
+                        ]
+                    }
+                ],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            const response = await fetchWithRetry(apiUrl, options);
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (text) {
+                return text.trim();
+            } else {
+                throw new Error("Prompt generation failed: No content returned.");
+            }
+        }
+
+        /**
+         * Calls the Gemini API (Text) to draft a dialogue based on concept and style.
+         */
+        async function draftDialogueApi(imagePrompt, concept, sceneCount) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are a cinematic scriptwriter. Write a short, engaging dialogue script (suitable for ${sceneCount} scenes). Use distinct character names and format each line strictly as 'Character Name: "Dialogue line."'`;
+
+            const userQuery = `Video Concept: "${concept}"\nVisual Style: "${imagePrompt}"\n\nGenerate a compelling short dialogue script.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            const response = await fetchWithRetry(apiUrl, options);
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (text) {
+                return text.trim();
+            } else {
+                throw new Error("Dialogue generation returned no text.");
+            }
+        }
+
+
+        // --- UI State Management and Display Functions ---
+
+        /**
+         * Renders the current step content and updates navigation.
+         */
+        function renderStep() {
+            const steps = [1, 2, 3];
+            steps.forEach(step => {
+                const content = document.getElementById(`step${step}-content`);
+                const button = document.getElementById(`step${step}-btn`);
+
+                if (step === state.currentStep) {
+                    content.classList.remove('hidden');
+                    button.classList.add('active-step');
+                    button.classList.remove('step-header');
+                } else {
+                    content.classList.add('hidden');
+                    button.classList.remove('active-step');
+                    button.classList.add('step-header');
+                }
+            });
+
+            // Update navigation button enablement
+            document.getElementById('step2-btn').disabled = !state.imageUrl || !state.imagePrompt;
+            document.getElementById('step3-btn').disabled = state.scenes.length === 0;
+
+            // Step 2 specific update
+            if (state.currentStep === 2) {
+                document.getElementById('ref-image-for-step2').src = state.imageUrl;
+                renderSceneEditor();
+            }
+
+            // Step 3 specific update
+            if (state.currentStep === 3) {
+                generateFinalJson();
+            }
+        }
+
+        /**
+         * Handles navigation between steps.
+         */
+        function goToStep(step) {
+            state.currentStep = step;
+            renderStep();
+        }
+
+        // --- Step 1 Logic: Generate Image ---
+
+        async function generateImage() {
+            const promptInput = document.getElementById('image-prompt');
+            const prompt = promptInput.value.trim();
+            const btn = document.getElementById('generate-image-btn');
+            const display = document.getElementById('image-display');
+            const status = document.getElementById('image-status');
+            const error = document.getElementById('image-error');
+            const promptDisplay = document.getElementById('image-prompt-display');
+            const uploadStatus = document.getElementById('upload-status');
+            const aiPromptSection = document.getElementById('ai-prompt-section');
+
+            if (!prompt) {
+                showToast("Please enter a detailed image prompt.", 'red');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loading-ring mr-3" style="border-top: 4px solid #1A1A2E;"></div> Generating...';
+            status.classList.add('hidden');
+            error.classList.add('hidden');
+            uploadStatus.classList.add('hidden');
+            aiPromptSection.classList.add('hidden'); // Hide AI review section
+            display.innerHTML = '<div class="loading-ring mx-auto"></div>';
+            display.classList.add('text-transparent'); // Hide placeholder text during load
+            promptInput.disabled = true; // Disable input while generating
+
+            try {
+                const imageUrl = await generateImageApi(prompt);
+                state.imagePrompt = prompt;
+                state.imageUrl = imageUrl;
+
+                // Update display
+                display.innerHTML = `<img src="${imageUrl}" alt="Reference Image" class="w-full h-full object-cover rounded-lg">`;
+                promptDisplay.textContent = `Current Prompt: ${prompt}`;
+                promptDisplay.classList.remove('hidden');
+
+                status.innerHTML = '✅ **Image successfully generated and prompt confirmed.** Move to Step 2 to draft your scenes.';
+                status.classList.remove('hidden');
+                
+                // Auto advance since prompt is already confirmed and available
+                goToStep(2); 
+            } catch (e) {
+                console.error("Image Generation Error:", e);
+                display.innerHTML = '<p class="text-red-500">Generation Failed</p>';
+                error.textContent = `❌ Error: ${e.message.split(":")[0] || "Could not generate image."}`;
+                error.classList.remove('hidden');
+                state.imageUrl = '';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Reference Image';
+                promptInput.disabled = false;
+                display.classList.remove('text-transparent');
+                renderStep(); // Re-render to update button enablement
+            }
+        }
+
+        // --- Step 1 Logic: Upload Image ---
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            const display = document.getElementById('image-display');
+            const promptInput = document.getElementById('image-prompt');
+            const promptDisplay = document.getElementById('image-prompt-display');
+            const uploadStatus = document.getElementById('upload-status');
+            const status = document.getElementById('image-status');
+            const error = document.getElementById('image-error');
+            const aiPromptSection = document.getElementById('ai-prompt-section');
+            const aiEditablePrompt = document.getElementById('ai-editable-prompt');
+
+            if (!file || !file.type.startsWith('image/')) {
+                if (file) showToast("Please select a valid image file (JPEG or PNG).", 'red');
+                event.target.value = '';
+                return;
+            }
+
+            // Reset state and UI for upload and generation
+            promptInput.value = ''; // Clear final editable box
+            promptInput.disabled = true;
+            document.getElementById('generate-image-btn').disabled = true;
+            aiPromptSection.classList.add('hidden');
+            error.classList.add('hidden');
+            status.classList.add('hidden');
+            uploadStatus.classList.remove('hidden'); // Show upload status
+            uploadStatus.textContent = 'Image uploaded. Analyzing style and generating prompt...';
+            
+            display.innerHTML = '<div class="loading-ring mx-auto"></div>';
+            display.classList.add('text-transparent');
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imageUrl = e.target.result;
+                const mimeType = file.type;
+                const base64Data = imageUrl.split(',')[1];
+                let generatedPrompt = '';
+
+                // Show uploaded image immediately
+                display.innerHTML = `<img src="${imageUrl}" alt="Uploaded Reference Image" class="w-full h-full object-cover rounded-lg">`;
+                
+                try {
+                    generatedPrompt = await generatePromptFromImageApi(base64Data, mimeType);
+                } catch (e) {
+                    // Fallback on API failure
+                    console.error("Prompt Generation from Image Failed:", e);
+                    generatedPrompt = "AI prompt generation failed. Please use the editable box above to write a style prompt.";
+                    error.innerHTML = `❌ **Error analyzing image for prompt.** Please write a prompt manually in the box above.`;
+                    error.classList.remove('hidden');
+                    
+                    // If prompt generation fails, re-enable input and don't show confirmation
+                    promptInput.disabled = false;
+                    document.getElementById('generate-image-btn').disabled = false;
+                    display.classList.remove('text-transparent');
+                    state.imageUrl = imageUrl;
+                    state.imagePrompt = '';
+                    uploadStatus.classList.add('hidden');
+                    renderStep();
+                    return; 
+                }
+
+                // Success: Update state and display for confirmation
+                state.imagePrompt = generatedPrompt; // Store original AI prompt in state
+                state.imageUrl = imageUrl;
+                
+                aiEditablePrompt.value = generatedPrompt; // Populate the new editable review box
+                aiPromptSection.classList.remove('hidden');
+
+                uploadStatus.textContent = '✅ Image analyzed. Review and edit the AI Prompt below, then click "Confirm" to set the final style.';
+                promptDisplay.textContent = `Current Prompt: (Awaiting Confirmation)`;
+                promptDisplay.classList.remove('hidden');
+                
+                display.classList.remove('text-transparent');
+                renderStep();
+                // NOTE: Do NOT call goToStep(2) here. It waits for useAiPrompt()
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        /**
+         * Uses the AI-generated (and now possibly edited) prompt, populates the final box, and advances to Step 2.
+         */
+        function useAiPrompt() {
+            const promptInput = document.getElementById('image-prompt');
+            const promptDisplay = document.getElementById('image-prompt-display');
+            const aiPromptSection = document.getElementById('ai-prompt-section');
+            const aiEditablePrompt = document.getElementById('ai-editable-prompt');
+            const status = document.getElementById('image-status');
+            const uploadStatus = document.getElementById('upload-status');
+            
+            const confirmedPrompt = aiEditablePrompt.value.trim();
+
+            if (!confirmedPrompt) {
+                showToast("The prompt box cannot be empty. Please enter a descriptive style prompt.", 'red');
+                return;
+            }
+
+            // 1. Populate the main editable text area (the final working prompt)
+            promptInput.value = confirmedPrompt;
+            state.imagePrompt = confirmedPrompt;
+            promptInput.disabled = false; // Ensure it's editable now
+            
+            // 2. Update display status
+            promptDisplay.textContent = `Current Prompt: ${state.imagePrompt}`;
+            status.innerHTML = '✅ **Prompt confirmed.** You can still edit the box above. Moving to Step 2...';
+            status.classList.remove('hidden');
+            uploadStatus.classList.add('hidden');
+            aiPromptSection.classList.add('hidden');
+            document.getElementById('generate-image-btn').disabled = false;
+
+            // 3. Advance
+            goToStep(2);
+        }
+
+
+        // --- Step 2 Logic ---
+        
+        async function draftDialogue() {
+            const concept = document.getElementById('video-concept').value.trim();
+            const imagePrompt = document.getElementById('image-prompt').value.trim();
+            const sceneCount = parseInt(document.getElementById('scene-count').value);
+            const dialogueInput = document.getElementById('video-dialogue');
+            const btn = document.getElementById('draft-dialogue-btn');
+
+            if (!concept || !imagePrompt) {
+                showToast("Please ensure the Style Prompt and Video Concept are filled in first.", 'red');
+                return;
+            }
+            if (sceneCount < 4 || isNaN(sceneCount)) {
+                showToast("Scene count must be 4 or more.", 'red');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loading-ring mr-2" style="border-top: 4px solid #1A1A2E;"></div> Drafting Dialogue...';
+
+            try {
+                const draftedScript = await draftDialogueApi(imagePrompt, concept, sceneCount);
+                dialogueInput.value = draftedScript;
+                showToast("✨ Dialogue draft generated! Review, edit, and click 'Suggest Scenes & Dialogue' to continue.", 'blue');
+            } catch (e) {
+                showErrorModal(`Failed to draft dialogue. Details: ${e.message}`);
+                console.error("Dialogue Drafting Error:", e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '✨ Draft Dialogue (AI Assist)';
+            }
+        }
+
+
+        async function generateScript() {
+            const conceptInput = document.getElementById('video-concept');
+            const dialogueInput = document.getElementById('video-dialogue');
+            const sceneCountInput = document.getElementById('scene-count');
+
+            const concept = conceptInput.value.trim();
+            const dialogue = dialogueInput.value.trim();
+            const sceneCount = parseInt(sceneCountInput.value);
+            const btn = document.getElementById('generate-script-btn');
+            const promptInput = document.getElementById('image-prompt');
+            
+            // Re-read image prompt from the editable box before script generation
+            state.imagePrompt = promptInput.value.trim();
+
+            if (!concept) {
+                showToast("Please enter the overall video concept first.", 'red');
+                return;
+            }
+            if (sceneCount < 4 || isNaN(sceneCount)) { // Enforcing minimum scene count of 4
+                showToast("Please enter a valid number of scenes (minimum 4).", 'red');
+                return;
+            }
+            if (!state.imagePrompt) {
+                showToast("Please complete Step 1 (Enter or Confirm Image Prompt) first.", 'red');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loading-ring mr-2" style="border-top: 4px solid #fff;"></div> Generating Scenes & Distributing Dialogue...';
+
+            state.videoConcept = concept;
+
+            try {
+                // Pass new arguments to API
+                const suggestedScenes = await generateScriptApi(state.imagePrompt, state.videoConcept, sceneCount, dialogue);
+
+                // Map the suggested structure to our internal state structure
+                state.scenes = suggestedScenes.map(scene => ({
+                    scene_number: scene.scene_number,
+                    action_description: scene.action_description,
+                    duration_sec: scene.suggested_duration_sec,
+                    dialogue: scene.dialogue || '',
+                    // NEW MAPPING FOR CAMERA MOVEMENT
+                    camera_movement: scene.camera_movement || 'dolly forward'
+                }));
+
+                renderSceneEditor();
+                document.getElementById('confirm-script-btn').classList.remove('hidden');
+            } catch (e) {
+                showErrorModal(`Failed to generate script. Details: ${e.message}`);
+                console.error("Script Generation Error:", e);
+                state.scenes = [];
+                document.getElementById('confirm-script-btn').classList.add('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Suggest Dynamic Scenes & Dialogue Distribution';
+                renderStep();
+            }
+        }
+
+        function updateScene(index, key, value) {
+            if (key === 'duration_sec') {
+                // Check if the input is empty or results in NaN, default to 3
+                const parsedValue = parseFloat(value);
+                state.scenes[index][key] = (isNaN(parsedValue) || parsedValue < 1) ? 3 : parsedValue;
+            } else {
+                state.scenes[index][key] = value;
+            }
+        }
+
+        function attachSceneListeners() {
+            const sceneInputs = document.querySelectorAll('#scene-editor textarea, #scene-editor input[type="text"], #scene-editor input[type="number"]');
+
+            sceneInputs.forEach(input => {
+                input.addEventListener('input', (event) => {
+                    const index = parseInt(event.target.dataset.sceneIndex);
+                    const key = event.target.dataset.key;
+                    let value = event.target.value;
+
+                    // Update the state using the centrally defined updateScene
+                    updateScene(index, key, value);
+                });
+            });
+        }
+
+        function renderSceneEditor() {
+            const editor = document.getElementById('scene-editor');
+            if (state.scenes.length === 0) {
+                editor.innerHTML = '<p class="text-gray-500 italic text-center pt-4 p-4 bg-[#2D334C] rounded-lg border border-[#3A3F5B]">Enter a concept and click "Suggest Scenes & Dialogue" to begin scripting.</p>';
+                document.getElementById('confirm-script-btn').classList.add('hidden');
+                return;
+            }
+
+            editor.innerHTML = '';
+            state.scenes.forEach((scene, index) => {
+                const sceneDiv = document.createElement('div');
+                sceneDiv.className = 'card p-6 border-none bg-[#2D334C] rounded-xl shadow-lg border border-[#3A3F5B]';
+                
+                sceneDiv.innerHTML = `
+                    <h3 class="font-bold text-xl text-[#00CFFF] mb-4 border-b border-gray-600 pb-2">Scene ${index + 1}</h3>
+
+                    <div class="space-y-4">
+                        <div class="mb-3">
+                            <label for="action-${index}" class="block text-sm font-medium text-gray-300 mb-1">Action Description</label>
+                            <textarea id="action-${index}" rows="2" class="w-full p-3 input-style rounded-lg" data-scene-index="${index}" data-key="action_description">${scene.action_description}</textarea>
+                        </div>
+
+                        <!-- Camera Movement Input -->
+                        <div class="mb-3">
+                            <label for="camera-${index}" class="block text-sm font-medium text-gray-300 mb-1">Camera Movement</label>
+                            <input id="camera-${index}" type="text" value="${scene.camera_movement || ''}" class="w-full p-3 input-style rounded-lg" data-scene-index="${index}" data-key="camera_movement" placeholder="e.g., dolly forward, fast track left">
+                            <p class="text-xs text-gray-500 mt-1">Key for cinematic feel: Use dynamic commands (e.g., Dolly Zoom, Slow Pan Right).</p>
+                        </div>
+                        
+                        <!-- Dialogue Input -->
+                        <div class="mb-3">
+                            <label for="dialogue-${index}" class="block text-sm font-medium text-gray-300 mb-1">Speech Dialogue</label>
+                            <input id="dialogue-${index}" type="text" value="${scene.dialogue}" class="w-full p-3 input-style rounded-lg" data-scene-index="${index}" data-key="dialogue">
+                            <p class="text-xs text-gray-500 mt-1">Character: "My line." (Keep blank if no speech)</p>
+                        </div>
+
+                        <div>
+                            <label for="duration-${index}" class="block text-sm font-medium text-gray-300 mb-1">Duration (seconds)</label>
+                            <input id="duration-${index}" type="number" min="1" max="15" value="${scene.duration_sec}" class="w-full p-3 input-style rounded-lg" data-scene-index="${index}" data-key="duration_sec">
+                        </div>
+                    </div>
+                `;
+                editor.appendChild(sceneDiv);
+            });
+            
+            // Attach event listeners to the newly created elements
+            attachSceneListeners(); 
+
+            document.getElementById('confirm-script-btn').classList.remove('hidden');
+        }
+
+        // --- Step 3 Logic ---
+
+        function generateFinalJson() {
+            // Validate scenes before final JSON generation (just a sanity check)
+            const validScenes = state.scenes.filter(s => s.action_description && s.duration_sec > 0);
+
+            const finalPayload = {
+                aspect_ratio: "9:16",
+                reference_image_prompt: state.imagePrompt,
+                video_concept: state.videoConcept,
+                scenes: validScenes.map((s, index) => ({
+                    scene_number: index + 1, // Ensure scene numbers are correct 1-indexed
+                    action_description: s.action_description,
+                    // INCLUDE CAMERA MOVEMENT
+                    camera_movement: s.camera_movement, 
+                    duration_sec: s.duration_sec,
+                    dialogue: s.dialogue // Include dialogue in final JSON
+                }))
+            };
+
+            // Update Review Summary
+            document.getElementById('review-image-prompt').innerHTML = `Image Prompt: <span class="italic text-white">${state.imagePrompt.substring(0, 100)}${state.imagePrompt.length > 100 ? '...' : ''}</span>`;
+            document.getElementById('review-concept').innerHTML = `Video Concept: <span class="italic text-white">${state.videoConcept}</span>`;
+            document.getElementById('review-scene-count').innerHTML = `Total Scenes: <span class="text-white">${validScenes.length}</span>`;
+
+
+            // Display JSON
+            const jsonCodeElement = document.getElementById('json-code');
+            jsonCodeElement.textContent = JSON.stringify(finalPayload, null, 2);
+        }
+
+        function copyJson() {
+            const jsonText = document.getElementById('json-code').textContent;
+            const status = document.getElementById('copy-status');
+
+            // Fallback using document.execCommand('copy') for environments where navigator.clipboard is blocked
+            try {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = jsonText;
+                tempTextArea.style.position = 'fixed'; // Prevent scrolling to the bottom
+                tempTextArea.style.opacity = '0';
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                
+                const success = document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+
+                if (success) {
+                    status.textContent = 'JSON copied successfully! Now paste it into the Veo Flow tool.';
+                    status.classList.remove('hidden', 'text-red-500');
+                    status.classList.add('text-green-500');
+                    setTimeout(() => status.classList.add('hidden'), 5000);
+                } else {
+                    throw new Error('execCommand failed');
+                }
+
+            } catch (err) {
+                showToast('Failed to copy JSON. Please copy the text manually from the box below.', 'red');
+                console.error('Copy failed:', err);
+            }
+        }
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Simple function to display a temporary notification.
+         */
+        function showToast(message, type = 'blue') {
+            const modal = document.getElementById('error-modal');
+            const button = modal.querySelector('button');
+            const header = modal.querySelector('h3');
+            
+            document.getElementById('error-message').textContent = message;
+            modal.classList.remove('hidden');
+            
+            header.textContent = type === 'red' ? 'ERROR' : 'INFO';
+            header.classList.remove('text-red-400', 'text-[#00CFFF]');
+            button.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-blue-600', 'hover:bg-blue-700');
+
+            if (type === 'red') {
+                header.classList.add('text-red-400');
+                button.classList.add('bg-red-600', 'hover:bg-red-700');
+            } else {
+                header.classList.add('text-[#00CFFF]');
+                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+        }
+
+        /**
+         * Show the main error modal.
+         */
+        function showErrorModal(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-modal').classList.remove('hidden');
+        }
+
+        /**
+         * Attaches all necessary event listeners to the DOM elements.
+         */
+        function attachEventListeners() {
+            // Navigation
+            document.getElementById('step1-btn').addEventListener('click', () => goToStep(1));
+            document.getElementById('step2-btn').addEventListener('click', () => goToStep(2));
+            document.getElementById('step3-btn').addEventListener('click', () => goToStep(3));
+            document.getElementById('confirm-script-btn').addEventListener('click', () => goToStep(3));
+
+            // Step 1 Actions
+            document.getElementById('generate-image-btn').addEventListener('click', generateImage);
+            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+            document.getElementById('use-ai-prompt-btn').addEventListener('click', useAiPrompt);
+
+            // Step 2 Actions
+            document.getElementById('draft-dialogue-btn').addEventListener('click', draftDialogue);
+            document.getElementById('generate-script-btn').addEventListener('click', generateScript);
+
+            // Step 3 Actions
+            document.getElementById('copy-json-btn').addEventListener('click', copyJson);
+        }
+
+        // Initialize on load using DOMContentLoaded for early setup
+        document.addEventListener('DOMContentLoaded', () => {
+            attachEventListeners();
+            renderStep();
+        });
+
+    </script>
+</body>
+</html>
